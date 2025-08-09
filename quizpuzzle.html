@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bilingual GK Quiz</title>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; background: #f5f5f5; }
+  #quiz-container { max-width: 600px; margin: auto; padding: 20px; background: white; border-radius: 10px; }
+  .option { display: block; padding: 10px; margin: 5px; border: 1px solid #ccc; border-radius: 5px; cursor: pointer; }
+  .option:hover { background: #f0f0f0; }
+  .language-buttons button { margin: 5px; padding: 5px 10px; cursor: pointer; }
+  #coins { font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <h1>GK Quiz</h1>
+  <div class="language-buttons">
+    <button id="bothBtn">Both (EN+HI)</button>
+    <button id="enBtn">English Only</button>
+    <button id="hiBtn">हिंदी Only</button>
+  </div>
+  <p id="coins">Coins: 0</p>
+  <h2 id="question">Loading...</h2>
+  <div id="options"></div>
+  <button id="hintBtn">Hint (-10 coins)</button>
+  <p id="result"></p>
+</div>
+
+<script>
+let questions = [];
+let currentQuestionIndex = 0;
+let coins = 0;
+let languageMode = "both";
+
+const translations = {
+  "What is the capital of India?": {
+    hindi: "भारत की राजधानी क्या है?",
+    options: ["इंदौर", "मुंबई", "दिल्ली", "चेन्नई"]
+  },
+  "Who is known as the Father of the Nation in India?": {
+    hindi: "भारत में राष्ट्रपिता के रूप में किसे जाना जाता है?",
+    options: ["महात्मा गांधी", "जवाहरलाल नेहरू", "भगत सिंह", "सुभाष चंद्र बोस"]
+  }
+};
+
+document.getElementById("bothBtn").addEventListener("click", () => { languageMode = "both"; renderQuestion(currentQuestionIndex); });
+document.getElementById("enBtn").addEventListener("click", () => { languageMode = "en"; renderQuestion(currentQuestionIndex); });
+document.getElementById("hiBtn").addEventListener("click", () => { languageMode = "hi"; renderQuestion(currentQuestionIndex); });
+
+function decodeHtml(html) {
+  let txt = document.createElement("textarea");
+  txt.innerHTML = html;
+  return txt.value;
+}
+
+function formatText(eng, hin) {
+  switch(languageMode) {
+    case "both": return hin ? `${eng} | ${hin}` : eng;
+    case "en": return eng;
+    case "hi": return hin || eng;
+    default: return eng;
+  }
+}
+
+function fetchQuestions() {
+  fetch("https://opentdb.com/api.php?amount=10&type=multiple")
+    .then(res => res.json())
+    .then(data => {
+      questions = data.results.map(q => {
+        let allOptions = [...q.incorrect_answers, q.correct_answer];
+        allOptions = allOptions.sort(() => Math.random() - 0.5);
+        return {
+          question: decodeHtml(q.question),
+          options: allOptions.map(o => decodeHtml(o)),
+          correct: decodeHtml(q.correct_answer)
+        };
+      });
+      renderQuestion(0);
+    });
+}
+
+function renderQuestion(index) {
+  const q = questions[index];
+  const hindiData = translations[q.question];
+  document.getElementById("question").innerText = hindiData
+    ? formatText(q.question, hindiData.hindi)
+    : formatText(q.question, "");
+
+  const optionsContainer = document.getElementById("options");
+  optionsContainer.innerHTML = "";
+  q.options.forEach((opt, i) => {
+    let optionText = hindiData ? formatText(opt, hindiData.options[i]) : formatText(opt, "");
+    const btn = document.createElement("button");
+    btn.className = "option";
+    btn.innerText = optionText;
+    btn.onclick = () => checkAnswer(opt);
+    optionsContainer.appendChild(btn);
+  });
+}
+
+function checkAnswer(selected) {
+  const correctAnswer = questions[currentQuestionIndex].correct;
+  if (selected === correctAnswer) {
+    coins += 4;
+    document.getElementById("result").innerText = "Correct!";
+  } else {
+    coins -= 1;
+    document.getElementById("result").innerText = "Wrong!";
+  }
+  document.getElementById("coins").innerText = "Coins: " + coins;
+  currentQuestionIndex++;
+  if (currentQuestionIndex < questions.length) {
+    setTimeout(() => renderQuestion(currentQuestionIndex), 800);
+  } else {
+    document.getElementById("question").innerText = "Quiz Over!";
+    document.getElementById("options").innerHTML = "";
+  }
+}
+
+document.getElementById("hintBtn").addEventListener("click", () => {
+  if (coins < 10) {
+    alert("Not enough coins!");
+    return;
+  }
+  coins -= 10;
+  document.getElementById("coins").innerText = "Coins: " + coins;
+  const q = questions[currentQuestionIndex];
+  const optionsButtons = document.querySelectorAll(".option");
+  let removed = 0;
+  optionsButtons.forEach(btn => {
+    if (btn.innerText.includes(q.correct) === false && removed < 2) {
+      btn.disabled = true;
+      btn.style.opacity = "0.5";
+      removed++;
+    }
+  });
+});
+
+fetchQuestions();
+</script>
+</body>
+</html>
+
